@@ -1,6 +1,7 @@
 import Exceptions.*;
 
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.Scanner;
 import java.time.LocalDate;
 import java.util.List;
@@ -314,18 +315,84 @@ public class Main {
             throw new RuntimeException(e);
         }
     }
+
+    public static void addAppointment(Appointment appointment) {
+        String sqlAsk = "INSERT INTO appointment (appointmentId, patientId, doctorId, date) VALUES (?, ?, ?, ?)";
+        String getLastAppointmentId = "SELECT MAX(appointmentId) FROM appointment";
+        try (Connection connection = getConnection();
+            PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk);
+            Statement statement = connection.createStatement()) {
+            ResultSet resultSet = statement.executeQuery(getLastAppointmentId);
+            int nextId = resultSet.next() ? resultSet.getInt(1) + 1 : 1;
+            preparedStatement.setInt(1, nextId);
+            preparedStatement.setInt(2, appointment.getPatient().getPatientId());
+            preparedStatement.setInt(3, appointment.getDoctor().getDoctorId());
+            preparedStatement.setDate(4, Date.valueOf(appointment.getAppointmentDate()));
+
+            preparedStatement.executeUpdate();
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    //TODO MOZE BY DODAC COS W RODZAJU NUMERU WERYFIKACYJNEGO(28217621) ZEBY BYLO MOZE COS W RODZAJU WIDOCZNEGO ID?
+    // ZEBY PO PROSTU JAKO PARAMETR METODY NIE PRZYJMOWAC CALEGO DOKTORA
+    // ALE WTEDY TEZ PROBLEM ZEBY Z SAMEGO NP LOGINU WZIAC TEGO SAMEGO DOCTORA JEGO ID
+
+    public List<Appointment> getDoctorAppointmentsFromDataBase(Doctor doctor) {
+        String sqlAsk = "SELECT * FROM appointment WHERE doctorId = ?";
+        try (Connection connection = getConnection();
+        PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk)) {
+            preparedStatement.setInt(1, doctor.getDoctorId());
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                List<Appointment> doctorAppointments = new ArrayList<>();
+                while (resultSet.next()) {
+                    int appointmentId = resultSet.getInt("appointmentId");
+                    int patientId = resultSet.getInt("patientId");
+                    LocalDate appointmentDate = resultSet.getDate("date").toLocalDate();
+                    doctorAppointments.add(new Appointment(appointmentId, doctor, getPatientByIdFromDataBase(patientId), appointmentDate));
+                }
+                return doctorAppointments;
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static Patient getPatientByIdFromDataBase(int patientId) {
+        String sqlAsk = "SELECT * FROM patient WHERE patientId = ?";
+        try (Connection connection = getConnection();
+        PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk)) {
+            preparedStatement.setInt(1, patientId);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if(resultSet.next()) {
+                    String patientName = resultSet.getString("patientName");
+                    String patientLogin = resultSet.getString("patientLogin");
+                    String patientPassword = resultSet.getString("patientPassword");
+                    return new Patient(patientId, patientName, patientLogin, patientPassword, List.of());
+                }
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        return null;        //TODO <----- ???? to  tak zostawic?
+    }
 }
 /**
  stworz aplikacje ktora bedzie miala mozliwosci:
  1. rejestracji uzytkownika
  2. logowanie uzytkownika, uzytkownik(pacjent) zalogowany ma dane opcje do wyboru:
- a) umowienie wizyty
- b) DONE wyswietlenie wszystkich umowionych swoich wizyt
- c) DONE wyswietlenie wszystkich swoich wizyt po konkretnej dacie
+ a) DONE umowienie wizyty
+ b) wyswietlenie wszystkich umowionych swoich wizyt
+ c) wyswietlenie wszystkich swoich wizyt po konkretnej dacie
  d) wyloguj
  3. zalogowany uzytkownik (lekarz) ma opcje:
- a) DONE wyswietlenie swoich wszystkich wizyt
+ a) wyswietlenie swoich wszystkich wizyt
  b) wyloguj / wylaczenie programu
  zaimplementuj kazdy z punktow tak aby uzytkownik mial wply na dzialanie aplikacji wszystkie dane zapisujemy w bazie danych mySQL
+
+ rejestracja jest? bo mozna dodac pacjenta/doktora do bazy danych
+
+ logowanie w polowie bo mozna brac doktora/pacjenta z bazy danych
  */
 
