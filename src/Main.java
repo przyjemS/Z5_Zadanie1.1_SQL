@@ -8,23 +8,17 @@ import java.util.List;
 
 public class Main {
     public static void main(String[] args) throws SQLException, ClassNotFoundException {
-        List<Patient> patientList;
-        List<Doctor> doctorList;
-
+        startApp();
     }
 
-    public void startApp(List<Doctor> doctorList, List<Patient> patientList) {
+    public static void startApp() {
         while (true) {
+            System.out.println("Choose 1 to register in or 2 to login");
             String option = getString();
-            System.out.println("Choose 1 to log in or 2 to register");
 
             switch (option) {
-                case "1" -> {
-                    logIn(doctorList, patientList);
-                }
-                case "2" -> {
-                    register(doctorList, patientList);
-                }
+                case "1" -> register();
+                case "2" -> logIn();
                 case "exit" -> {
                     return;
                 }
@@ -33,39 +27,30 @@ public class Main {
         }
     }
 
-    public void logIn(List<Doctor> doctorList, List<Patient> patientList) {
-        // trzeba wybrac czy logujesz sie jako doctor czy jako pacjent zeby potem mu wyswietlalo inne rzeczy
+    public static void logIn() {
         while (true) {
             System.out.println("Choose 1 to login as doctor or 2 to login as patient");
             String roleOption = getString();
 
             switch (roleOption) {
-                case "1" -> {
-                    logInAsDoctor(doctorList);
-                }
-                case "2" -> {
-                    logInAsPatient(patientList);
-                }
+                case "1" -> logInAsDoctor();
+                case "2" -> logInAsPatient();
                 case "exit" -> {
                     return;
                 }
-                default -> throw new InvalidRegisterOptionException();
+                default -> throw new InvalidLogInOptionException();
             }
         }
     }
 
-    public void register(List<Doctor> doctorList, List<Patient> patientList) {
+    public static void register() {
         while (true) {
             System.out.println("Choose 1 to register as doctor or 2 to register as patient");
             String roleOption = getString();
 
             switch (roleOption) {
-                case "1" -> {
-                    registerAsDoctor(doctorList);
-                }
-                case "2" -> {
-                    registerAsPatient(patientList);
-                }
+                case "1" -> registerAsDoctor();
+                case "2" -> registerAsPatient();
                 case "exit" -> {
                     return;
                 }
@@ -75,127 +60,186 @@ public class Main {
         }
     }
 
-    //TODO na koniec register raczej login trzeba dac
-    public void registerAsDoctor(List<Doctor> doctorList) {
-        int doctorId = 0;
+    public static void registerAsDoctor() {
         String doctorName;
         String doctorLogin;
         String doctorPassword;
         boolean tmp = true;
         while (tmp) {
-            System.out.println("Podaj imie:");
+            System.out.println("Podaj Imie");
             doctorName = getString();
-            System.out.println("Podaj login");
+            System.out.println("Ustaw login");
             doctorLogin = getString();
             System.out.println("Ustaw haslo");
             doctorPassword = getString();
-            doctorList.add(new Doctor(doctorId++, doctorName, doctorLogin, doctorPassword, List.of()));
-            tmp = false;
-//            System.out.println("Jezeli chcesz zarejestrowac kolejnego doktora wybierz 1, w przeciwnym wypadku 0 - wyjscie");
-//            int option = getInt();
-//            if (option == 1) {
-//                tmp = true;
-//            } else {
-//                tmp = false;
-//            }
+            addDoctorToDataBase(doctorName, doctorLogin, doctorPassword);
+            if (!isDoctorInDataBase(doctorLogin, doctorPassword)) {
+                tmp = false;
+                logInAsDoctor();
+            } else {
+                throw new InvalidDoctorException();
+            }
         }
-        //TODO przejscie dalej (jakas metoda co daje opcje do wybrania np wyswietl albo cos)
     }
 
-    public void registerAsPatient(List<Patient> patientList) {
-        int patientId = 0;
-        //id bedzie trzeba spraawdzac ostatnie jakie jest w bazie danych
+    public static List<Doctor> getAllDoctorsFromDataBaseAsList() {
+        List<Doctor> doctors = new ArrayList<>();
+        try {
+            String sql = "SELECT * FROM doctor";
+            PreparedStatement statement = getConnection().prepareStatement(sql);
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                int doctorId = resultSet.getInt("doctorId");
+                String doctorName = resultSet.getString("doctorName");
+                String doctorLogin = resultSet.getString("doctorLogin");
+                String doctorPassword = resultSet.getString("doctorPassword");
+                doctors.add(new Doctor(doctorId, doctorName, doctorLogin, doctorPassword, List.of()));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        return doctors;
+    }
+
+    public static void registerAsPatient() {
         String patientName;
         String patientLogin;
         String patientPassword;
         boolean tmp = true;
         while (tmp) {
-            System.out.println("Podaj imie:");
+            System.out.println("Podaj Imie");
             patientName = getString();
             System.out.println("Podaj login");
             patientLogin = getString();
             System.out.println("Ustaw haslo");
             patientPassword = getString();
-            patientList.add(new Patient(patientId++, patientName, patientLogin, patientPassword, List.of()));
-            tmp = false;
-//            System.out.println("Jezeli chcesz zarejestrowac kolejnego pacjenta wybierz 1, w przeciwnym wypadku 0 - wyjscie");
-//            int option = getInt();
-//            if (option == 1) {
-//                tmp = true;
-//            } else {
-//                tmp = false;
-//            }
+            addPatientToDataBase(patientName, patientLogin, patientPassword);
+
+            if (!isPatientInDataBase(patientLogin, patientPassword)) {
+                tmp = false;
+                logInAsPatient();
+            } else {
+                throw new InvalidPatientException();
+            }
         }
-        //TODO przejscie dalej (jakas metoda co daje opcje do wybrania np wyswietl albo cos)
-//        menuForDoctor();
-        logInAsPatient(patientList);
     }
 
-    // metoda nie ma miec parametru metody?
-    public void logInAsDoctor(List<Doctor> doctorList) {
+    public static List<Patient> getAllPatientsFromDataBaseAsList() {
+        List<Patient> patients = new ArrayList<>();
+
+        try {
+            String sql = "SELECT * FROM patient";
+            PreparedStatement statement = getConnection().prepareStatement(sql);
+            ResultSet resultSet = statement.executeQuery();
+
+            while (resultSet.next()) {
+                int patientId = resultSet.getInt("patientId");
+                String patientName = resultSet.getString("patientName");
+                String patientLogin = resultSet.getString("patientLogin");
+                String patientPassword = resultSet.getString("patientPassword");
+                patients.add(new Patient(patientId, patientName, patientLogin, patientPassword, List.of()));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        return patients;
+    }
+
+    public static void logInAsDoctor() {
         String doctorLogin;
         String doctorPassword;
         boolean tmp = true;
         while (tmp) {
-            System.out.println("Podaj login:");
+            System.out.println("Ustaw login");
             doctorLogin = getString();
-            //pojdzie search po bazie danych ma wypisac wszystkich uzytkownikoiw z tym samym loginem i sprawdzic nastepnie
-            // czy haslo sie zgadza z podanychj
-            System.out.println("Podaj haslo");
+            System.out.println("Ustaw haslo");
             doctorPassword = getString();
+            if (isDoctorInDataBase(doctorLogin, doctorPassword)) {
+                tmp = false;
+                menuForDoctor(doctorLogin);
+            }
+        }
+    }
 
-            for (Doctor doctor : doctorList) {
-                if (doctor.getDoctorLogin().equalsIgnoreCase(doctorLogin) && doctor.getDoctorPassword().equals(doctorPassword)) {
-                    menuForDoctor();
-                } else if (doctor.getDoctorLogin().equalsIgnoreCase(doctorLogin) && !doctor.getDoctorPassword().equals(doctorPassword)) {
-                    throw new InvalidPasswordException();
-                } else if (!doctor.getDoctorLogin().equalsIgnoreCase(doctorLogin) && doctor.getDoctorPassword().equals(doctorPassword)) {
-                    throw new InvalidLoginException();
-                } else {
-                    throw new InvalidDoctorException();
+    public static void logInAsPatient() {
+        String patientLogin;
+        String patientPassword;
+        boolean tmp = true;
+        while (tmp) {
+            System.out.println("Podaj login");
+            patientLogin = getString();
+            System.out.println("Ustaw haslo");
+            patientPassword = getString();
+            if (isPatientInDataBase(patientLogin, patientPassword)) {
+                tmp = false;
+                menuForPatient();
+            }
+        }
+    }
+
+    public static void menuForDoctor(String doctorLogin) {
+        boolean tmp = true;
+        while (tmp) {
+            System.out.println("Wybierz co chcesz zrobic:");
+            System.out.println("1. Wyswietl wszystkie wizyty");
+            System.out.println("2. wyloguj");
+            String menuOption = getString();
+
+            switch (menuOption) {
+                case "1" -> {
+                    System.out.println("Wszystkie wizyty:");
+                    List<Appointment> doctorAppointments = getDoctorAppointmentsFromDataBase(getDoctorFromDataBase(doctorLogin));
+                    doctorAppointments.forEach(System.out::println);
+                }
+                case "2" -> {
+                    System.out.println("Wylogowano");
+                    tmp = false;
                 }
             }
-            tmp = false;
         }
-        menuForDoctor();
     }
 
+    public static void menuForPatient() {
+        String patientLogin = null;
+        LocalDate date = null;
+        boolean tmp = true;
+        while (tmp) {
+            System.out.println("Wybierz co chcesz zrobic:");
+            System.out.println("1. umowic wizyte");
+            System.out.println("2. wyswietl wszystkie wizyty");
+            System.out.println("3. wyswietl wizyty po okreslonej dacie");
+            System.out.println("4. wyloguj");
+            String menuOption = getString();
 
-    public void logInAsPatient(List<Patient> patientList) {
+            switch (menuOption) {
+                case "1" -> {
+                    System.out.println("Podaj dane do umowienia wizyty:");
+                    System.out.println("Twoj login:");
+                    patientLogin = getString();
+                    System.out.println("Login doktora:");
+                    String doctorLogin = getString();
+                    System.out.println("Data wizyty (YYYY-MM-DD):");
+                    date = LocalDate.parse(getString());
+                    addAppointmentToDataBase(patientLogin, doctorLogin, date);
+                }
+                case "2" -> {
+                    System.out.println("Wizyty pacjenta:");
+                    List<Appointment> patientAppointments = getPatientAppointmentsFromDataBase(getPatientFromDataBase(patientLogin));
+                    patientAppointments.forEach(System.out::println);
+                }
+                case "3" -> {
+                    System.out.println("Wizyty pacjenta po: " + date);
+                    List<Appointment> patientAppointmentsAfterDate = getPatientAppointmentsAfterDate(patientLogin, date);
+                    patientAppointmentsAfterDate.forEach(System.out::println);
+                }
+                case "4" -> {
+                    System.out.println("Wylogowano");
+                    tmp = false;
+                }
+            }
 
-    }
-
-    public void menuForDoctor() {
-
-    }
-
-    public void menuForPatient() {
-
-    }
-
-
-    public List<Appointment> showPatientAppointments(List<Patient> patientList, int searchedPatientID) {
-        return patientList.stream().filter(patient -> patient.getPatientId() == searchedPatientID)
-                .findFirst()
-                .map(Patient::getPatientVisitList)
-                .orElseThrow(InvalidPatientException::new);
-    }
-
-    public List<Appointment> showPatientAppointmentsAfterDate(List<Patient> patientList, int searchedPatientID, LocalDate date) {
-        return patientList.stream()
-                .filter(patient -> patient.getPatientId() == searchedPatientID)
-                .findFirst()
-                .map(patient -> patient.getPatientVisitList().stream()
-                        .filter(appointment -> appointment.getAppointmentDate().equals(date))
-                        .toList())
-                .orElseThrow(InvalidPatientException::new);
-    }
-
-    public List<Appointment> showDoctorAppointments(List<Doctor> doctorList, int searchedDoctorID) {
-        return doctorList.stream().filter(doctor -> doctor.getDoctorId() == searchedDoctorID)
-                .findFirst()
-                .map(Doctor::getDoctorVisitList)
-                .orElseThrow(InvalidDoctorException::new);
+        }
     }
 
     public static String getString() {
@@ -207,142 +251,208 @@ public class Main {
     }
 
     /**
-     CZESC BAZO DANOWA
+     * CZESC BAZO DANOWA
      */
     public static Connection getConnection() throws SQLException, ClassNotFoundException {
         Class.forName("com.mysql.cj.jdbc.Driver");
-        return DriverManager.getConnection("jdbc:mysql://127.0.0.1:3306/z5_zad1?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC", "root", "Zarozumialec1");
+        return DriverManager.getConnection("jdbc:mysql://127.0.0.1:3306/z5_zad1?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC", "root", "Zarozumialec1!");
     }
 
-    //TODO void czy Doctor
-    public static void addDoctorToDataBase(Doctor doctorToBeAdded) {
+    public static void addDoctorToDataBase(String doctorName, String doctorLogin, String doctorPassword) {
         String sqlAsk = "INSERT INTO doctor (doctorId, doctorName, doctorLogin, doctorPassword) VALUES (?, ?, ?, ?)";
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk);
+             //Statement umozliwia wykonanie zapytania ktore nie wymagaja parametrow
+             // czyli odwrotnie do PreparedStatement
+             //createStatement zwraca nowy obiekt Statement zwiazany z polaczenie do bazy danych
+             Statement statement = connection.createStatement()) {
+            //executeQuery wykonuje zapytanie SQL w bazie danych, zwraca jako resultSet czyli u mnie wykonuje zapytanie o ostatnie Id doktora w tabeli
+            preparedStatement.setInt(1, getLastDoctorIdFromDataBase());
+            preparedStatement.setString(2, doctorName);
+            preparedStatement.setString(3, doctorLogin);
+            preparedStatement.setString(4, doctorPassword);
+            //executeUpdate wstawia aktualizacje do SQL
+            // i zwraca liczbe wierszy modyfikowanych przez zapytanie
+            // natomiast execute jest bardzo ogolnikowa do kazdego zapytania
+            preparedStatement.executeUpdate();
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static int getLastDoctorIdFromDataBase() {
         String getLastDoctorId = "SELECT MAX(doctorId) FROM doctor";
-        try (Connection connection = getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk);
-             //Statement umozliwia wykonanie zapytania ktore nie wymagaja parametrow
-             // czyli odwrotnie do PreparedStatement
-             //createStatement zwraca nowy obiekt Statement zwiazany z polaczenie do bazy danych
-             Statement statement = connection.createStatement()) {
-            //executeQuery wykonuje zapytanie SQL w bazie danych, zwraca jako resultSet czyli u mnie wykonuje zapytanie o ostatnie Id doktora w tabeli
+        try (// zapytanie jest na tyle proste(nie ma parametrow ktore beda wczytywane z zewnatrz)
+             // ze wystarczy samo statement (nie trzeba PreparedStatement)
+             Statement statement = getConnection().createStatement()) {
             ResultSet resultSet = statement.executeQuery(getLastDoctorId);
-            int nextId = resultSet.next() ? resultSet.getInt(1) + 1 : 1;
-            preparedStatement.setInt(1, nextId);
-            preparedStatement.setString(2, doctorToBeAdded.getDoctorName());
-            preparedStatement.setString(3, doctorToBeAdded.getDoctorLogin());
-            preparedStatement.setString(4, doctorToBeAdded.getDoctorPassword());
-            //executeUpdate wstawia aktualizacje do SQL
-            // i zwraca liczbe wierszy modyfikowanych przez zapytanie
-            // natomiast execute jest bardzo ogolnikowa do kazdego zapytania
-            preparedStatement.executeUpdate();
+            int nextDoctorId = resultSet.next() ? resultSet.getInt(1) + 1 : 1;
+            return nextDoctorId;
         } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static void addPatientToDataBase(Patient patientToBeAdded) {
+    public static void addPatientToDataBase(String name, String login, String password) {
         String sqlAsk = "INSERT INTO patient (patientId, patientName, patientLogin, patientPassword) VALUES (?, ?, ?, ?)";
-        String getLastPatientId = "SELECT MAX(patientId) FROM patient";
         try (Connection connection = getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk);
-             //Statement umozliwia wykonanie zapytania ktore nie wymagaja parametrow
-             // czyli odwrotnie do PreparedStatement
-             //createStatement zwraca nowy obiekt Statement zwiazany z polaczenie do bazy danych
              Statement statement = connection.createStatement()) {
-            //executeQuery wykonuje zapytanie SQL w bazie danych, zwraca jako resultSet czyli u mnie wykonuje zapytanie o ostatnie Id doktora w tabeli
+            preparedStatement.setInt(1, getLastPatientIdFromDataBase());
+            preparedStatement.setString(2, name);
+            preparedStatement.setString(3, login);
+            preparedStatement.setString(4, password);
+            preparedStatement.executeUpdate();
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static int getLastPatientIdFromDataBase() {
+        String getLastPatientId = "SELECT MAX(patientId) FROM patient";
+        try (Statement statement = getConnection().createStatement()) {
             ResultSet resultSet = statement.executeQuery(getLastPatientId);
-            int nextId = resultSet.next() ? resultSet.getInt(1) + 1 : 1;
-            preparedStatement.setInt(1, nextId);
-            preparedStatement.setString(2, patientToBeAdded.getPatientName());
-            preparedStatement.setString(3, patientToBeAdded.getPatientLogin());
-            preparedStatement.setString(4, patientToBeAdded.getPatientPassword());
-            //executeUpdate wstawia aktualizacje do SQL
-            // i zwraca liczbe wierszy modyfikowanych przez zapytanie
-            // natomiast execute jest bardzo ogolnikowa do kazdego zapytania
-            preparedStatement.executeUpdate();
+            int nextDoctorId = resultSet.next() ? resultSet.getInt(1) + 1 : 1;
+            return nextDoctorId;
         } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
 
+    public static Doctor getDoctorFromDataBase(String login) {
+        try {
+            String sqlAsk = "SELECT * FROM doctor WHERE login = ?";
+            Statement statement = getConnection().createStatement();
+            ResultSet resultSet = statement.executeQuery(sqlAsk);
+            while (resultSet.next()) {
+                String doctorNameInDataBase = resultSet.getString("doctorName");
+                String doctorPasswordInDataBase = resultSet.getString("doctorPassword");
+                return new Doctor(getLastDoctorIdFromDataBase(), doctorNameInDataBase, login, doctorPasswordInDataBase, List.of());
+            }
+            throw new InvalidDoctorException();
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-    public static Doctor getDoctorFromDataBase(String login, String password) {
-        String sqlAsk = "SELECT * FROM doctor WHERE login = ? AND password = ?";
-        try (Connection connection = getConnection();
-             // PreparedStatement to obiekt co pozwala na robienie zapytan do SQL ktore bedzie wykonane
-             // w bazie danych
-             PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk)) {
+    public static boolean isDoctorInDataBase(String login, String password) {
+        try {
+            String sqlAsk = "SELECT * FROM doctor WHERE doctorLogin = ? AND doctorPassword = ?";
+//            Statement statement = getConnection().createStatement();
+            PreparedStatement preparedStatement = getConnection().prepareStatement(sqlAsk);
             preparedStatement.setString(1, login);
             preparedStatement.setString(2, password);
+            ResultSet resultSet = preparedStatement.executeQuery();
 
-            // ResultSet to obiekt ktory przechowywuje wyniki zapytania SQL
-            // i umozliwia iterowanie po nich
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    int doctorId = resultSet.getInt("doctorId");
-                    String doctorName = resultSet.getString("doctorName");
-                    return new Doctor(doctorId, doctorName, login, password, List.of());
+            while (resultSet.next()) {
+                String doctorLoginInDataBase = resultSet.getString("doctorLogin");
+                String doctorPasswordInDataBase = resultSet.getString("doctorPassword");
+
+                if (!password.equals(doctorPasswordInDataBase)) {
+                    throw new InvalidPasswordException();
+                } else if (!login.equalsIgnoreCase(doctorLoginInDataBase)) {
+                    throw new InvalidLoginException();
+//                } else if (!password.equals(doctorPasswordInDataBase) && !login.equalsIgnoreCase(doctorLoginInDataBase)) {
+//                    throw new InvalidDoctorException();
                 } else {
-                    throw new InvalidDoctorException();
+                    return true;
                 }
             }
+            throw new InvalidDoctorException();
         } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static Patient getPatientFromDataBase(String login, String password) {
-        String sqlAsk = "SELECT * FROM doctor WHERE login = ? AND password = ?";
-        try (Connection connection = getConnection();
-             // PreparedStatement to obiekt co pozwala na robienie zapytan do SQL ktore bedzie wykonane
-             // w bazie danych
-             PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk)) {
+    public static boolean isPatientInDataBase(String login, String password) {
+        try {
+            String sqlAsk = "SELECT * FROM patient WHERE patientLogin = ? AND patientPassword = ?";
+//            Statement statement = getConnection().createStatement();
+            PreparedStatement preparedStatement = getConnection().prepareStatement(sqlAsk);
             preparedStatement.setString(1, login);
             preparedStatement.setString(2, password);
+            ResultSet resultSet = preparedStatement.executeQuery();
 
-            // ResultSet to obiekt ktory przechowywuje wyniki zapytania SQL
-            // i umozliwia iterowanie po nich
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    int patientId = resultSet.getInt("patientId");
-                    String patientName = resultSet.getString("patientName");
-                    return new Patient(patientId, login, patientName, password, List.of());
+            while (resultSet.next()) {
+                String patientLoginInDataBase = resultSet.getString("patientLogin");
+                String patientPasswordInDataBase = resultSet.getString("patientPassword");
+
+                if (!password.equals(patientPasswordInDataBase)) {
+                    throw new InvalidPasswordException();
+                } else if (!login.equalsIgnoreCase(patientLoginInDataBase)) {
+                    throw new InvalidLoginException();
+//                } else if (!password.equals(patientPasswordInDataBase) && !login.equalsIgnoreCase(patientLoginInDataBase)) {
+//                    throw new InvalidDoctorException();
                 } else {
-                    throw new InvalidPatientException();
+                    return true;
                 }
             }
+            throw new InvalidPatientException();
         } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static void addAppointment(Appointment appointment) {
+    public static Patient getPatientFromDataBase(String login) {
+        try {
+            String sqlAsk = "SELECT * FROM patient WHERE patientLogin = ?";
+            PreparedStatement preparedStatement = getConnection().prepareStatement(sqlAsk);
+            preparedStatement.setString(1, login);
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                String patientNameInDataBase = resultSet.getString("patientName");
+                String patientPasswordInDataBase = resultSet.getString("patientPassword");
+                return new Patient(resultSet.getInt("patientId"), patientNameInDataBase, login, patientPasswordInDataBase, List.of());
+            }
+            throw new InvalidPatientException();
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void addAppointmentToDataBase(String patientLogin, String doctorLogin, LocalDate appointmentDate) {
         String sqlAsk = "INSERT INTO appointment (appointmentId, patientId, doctorId, date) VALUES (?, ?, ?, ?)";
-        String getLastAppointmentId = "SELECT MAX(appointmentId) FROM appointment";
-        try (Connection connection = getConnection();
-            PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk);
-            Statement statement = connection.createStatement()) {
-            ResultSet resultSet = statement.executeQuery(getLastAppointmentId);
-            int nextId = resultSet.next() ? resultSet.getInt(1) + 1 : 1;
-            preparedStatement.setInt(1, nextId);
-            preparedStatement.setInt(2, appointment.getPatient().getPatientId());
-            preparedStatement.setInt(3, appointment.getDoctor().getDoctorId());
-            preparedStatement.setDate(4, Date.valueOf(appointment.getAppointmentDate()));
-
-            preparedStatement.executeUpdate();
+        try (PreparedStatement preparedStatement = getConnection().prepareStatement(sqlAsk);
+             Statement statement = getConnection().createStatement()) {
+            if (isDoctorAvailable(doctorLogin, appointmentDate)) {
+                preparedStatement.setInt(1, getLastAppointmentIdFromDataBase());
+                preparedStatement.setString(2, getPatientFromDataBase(patientLogin).getPatientLogin());
+                preparedStatement.setString(3, getDoctorFromDataBase(doctorLogin).getDoctorLogin());
+                preparedStatement.setDate(4, Date.valueOf(appointmentDate));
+                preparedStatement.executeUpdate();
+            } else {
+                throw new DoctorIsNotAvailable();
+            }
         } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
 
-    //TODO MOZE BY DODAC COS W RODZAJU NUMERU WERYFIKACYJNEGO(28217621) ZEBY BYLO MOZE COS W RODZAJU WIDOCZNEGO ID?
-    // ZEBY PO PROSTU JAKO PARAMETR METODY NIE PRZYJMOWAC CALEGO DOKTORA
-    // ALE WTEDY TEZ PROBLEM ZEBY Z SAMEGO NP LOGINU WZIAC TEGO SAMEGO DOCTORA JEGO ID
+    public static boolean isDoctorAvailable(String doctorLogin, LocalDate appointmentDate) {
+        Doctor doctor = getDoctorFromDataBase(doctorLogin);
+        List<Appointment> doctorAppointments = getDoctorAppointmentsFromDataBase(doctor);
+        for (Appointment appointment : doctorAppointments) {
+            if (appointment.getDoctor().getDoctorLogin().equalsIgnoreCase(doctorLogin) && appointment.getAppointmentDate().equals(appointmentDate)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-    public List<Appointment> getDoctorAppointmentsFromDataBase(Doctor doctor) {
+    public static int getLastAppointmentIdFromDataBase() {
+        String getLastAppointmentId = "SELECT MAX(patientId) FROM patient";
+        try (Statement statement = getConnection().createStatement()) {
+            ResultSet resultSet = statement.executeQuery(getLastAppointmentId);
+            int nextAppointmentId = resultSet.next() ? resultSet.getInt(1) + 1 : 1;
+            return nextAppointmentId;
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static List<Appointment> getDoctorAppointmentsFromDataBase(Doctor doctor) {
         String sqlAsk = "SELECT * FROM appointment WHERE doctorId = ?";
-        try (Connection connection = getConnection();
-        PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk)) {
+        try (PreparedStatement preparedStatement = getConnection().prepareStatement(sqlAsk)) {
             preparedStatement.setInt(1, doctor.getDoctorId());
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 List<Appointment> doctorAppointments = new ArrayList<>();
@@ -359,13 +469,42 @@ public class Main {
         }
     }
 
+    public static List<Appointment> getPatientAppointmentsFromDataBase(Patient patient) {
+        String sqlAsk = "SELECT * FROM appointment WHERE patientId = ?";
+        try (PreparedStatement preparedStatement = getConnection().prepareStatement(sqlAsk)) {
+            preparedStatement.setInt(1, patient.getPatientId());
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                List<Appointment> patientAppointments = new ArrayList<>();
+                while (resultSet.next()) {
+                    int appointmentId = resultSet.getInt("appointmentId");
+                    int doctorId = resultSet.getInt("patientId");
+                    LocalDate appointmentDate = resultSet.getDate("date").toLocalDate();
+                    patientAppointments.add(new Appointment(appointmentId, getDoctorByIdFromDataBase(doctorId), patient, appointmentDate));
+                }
+                return patientAppointments;
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static List<Appointment> getPatientAppointmentsAfterDate(String patientLogin, LocalDate afterDate) {
+        List<Appointment> allAppointments = getPatientAppointmentsFromDataBase(getPatientFromDataBase(patientLogin));
+        List<Appointment> appointmentsAfterDate = new ArrayList<>();
+        for (Appointment appointment : allAppointments) {
+            if (appointment.getAppointmentDate().isAfter(afterDate)) {
+                appointmentsAfterDate.add(appointment);
+            }
+        }
+        return appointmentsAfterDate;
+    }
+
     public static Patient getPatientByIdFromDataBase(int patientId) {
         String sqlAsk = "SELECT * FROM patient WHERE patientId = ?";
-        try (Connection connection = getConnection();
-        PreparedStatement preparedStatement = connection.prepareStatement(sqlAsk)) {
+        try (PreparedStatement preparedStatement = getConnection().prepareStatement(sqlAsk)) {
             preparedStatement.setInt(1, patientId);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if(resultSet.next()) {
+                if (resultSet.next()) {
                     String patientName = resultSet.getString("patientName");
                     String patientLogin = resultSet.getString("patientLogin");
                     String patientPassword = resultSet.getString("patientPassword");
@@ -375,24 +514,24 @@ public class Main {
         } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
-        return null;        //TODO <----- ???? to  tak zostawic?
+        return null;
+    }
+
+    public static Doctor getDoctorByIdFromDataBase(int doctorId) {
+        String sqlAsk = "SELECT * FROM patient WHERE patientId = ?";
+        try (PreparedStatement preparedStatement = getConnection().prepareStatement(sqlAsk)) {
+            preparedStatement.setInt(1, doctorId);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    String doctorName = resultSet.getString("doctorName");
+                    String doctorLogin = resultSet.getString("doctorLogin");
+                    String doctorPassword = resultSet.getString("doctorPassword");
+                    return new Doctor(doctorId, doctorName, doctorLogin, doctorPassword, List.of());
+                }
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
     }
 }
-/**
- stworz aplikacje ktora bedzie miala mozliwosci:
- 1. rejestracji uzytkownika
- 2. logowanie uzytkownika, uzytkownik(pacjent) zalogowany ma dane opcje do wyboru:
- a) DONE umowienie wizyty
- b) wyswietlenie wszystkich umowionych swoich wizyt
- c) wyswietlenie wszystkich swoich wizyt po konkretnej dacie
- d) wyloguj
- 3. zalogowany uzytkownik (lekarz) ma opcje:
- a) wyswietlenie swoich wszystkich wizyt
- b) wyloguj / wylaczenie programu
- zaimplementuj kazdy z punktow tak aby uzytkownik mial wply na dzialanie aplikacji wszystkie dane zapisujemy w bazie danych mySQL
-
- rejestracja jest? bo mozna dodac pacjenta/doktora do bazy danych
-
- logowanie w polowie bo mozna brac doktora/pacjenta z bazy danych
- */
-
