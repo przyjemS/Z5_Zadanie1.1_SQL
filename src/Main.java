@@ -82,26 +82,6 @@ public class Main {
         }
     }
 
-    public static List<Doctor> getAllDoctorsFromDataBaseAsList() {
-        List<Doctor> doctors = new ArrayList<>();
-        try {
-            String sql = "SELECT * FROM doctor";
-            PreparedStatement statement = getConnection().prepareStatement(sql);
-            ResultSet resultSet = statement.executeQuery();
-
-            while (resultSet.next()) {
-                int doctorId = resultSet.getInt("doctorId");
-                String doctorName = resultSet.getString("doctorName");
-                String doctorLogin = resultSet.getString("doctorLogin");
-                String doctorPassword = resultSet.getString("doctorPassword");
-                doctors.add(new Doctor(doctorId, doctorName, doctorLogin, doctorPassword, List.of()));
-            }
-        } catch (SQLException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-        return doctors;
-    }
-
     public static void registerAsPatient() {
         String patientName;
         String patientLogin;
@@ -123,27 +103,6 @@ public class Main {
                 throw new InvalidPatientException();
             }
         }
-    }
-
-    public static List<Patient> getAllPatientsFromDataBaseAsList() {
-        List<Patient> patients = new ArrayList<>();
-
-        try {
-            String sql = "SELECT * FROM patient";
-            PreparedStatement statement = getConnection().prepareStatement(sql);
-            ResultSet resultSet = statement.executeQuery();
-
-            while (resultSet.next()) {
-                int patientId = resultSet.getInt("patientId");
-                String patientName = resultSet.getString("patientName");
-                String patientLogin = resultSet.getString("patientLogin");
-                String patientPassword = resultSet.getString("patientPassword");
-                patients.add(new Patient(patientId, patientName, patientLogin, patientPassword, List.of()));
-            }
-        } catch (SQLException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-        return patients;
     }
 
     public static void logInAsDoctor() {
